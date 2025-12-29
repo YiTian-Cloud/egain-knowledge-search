@@ -66,6 +66,12 @@ function fmt(n: number) {
   return new Intl.NumberFormat("en-US").format(n);
 }
 
+const AGENT_BAR_COLORS = {
+  suggestionsShown: "#2563EB",     // blue
+  suggestionsAccepted: "#F59E0B",  // amber
+  answersGenerated: "#DC2626",     // red
+} as const;
+
 export default function MetricsPage() {
   const [search, setSearch] = useState<SearchSummary | null>(null);
   const [agent, setAgent] = useState<AgentSummary | null>(null);
@@ -238,11 +244,37 @@ export default function MetricsPage() {
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="day" tick={{ fontSize: 12 }} />
               <YAxis tick={{ fontSize: 12 }} />
-              <Tooltip />
+             <Tooltip
+  formatter={(value, name) => {
+    const map: Record<string, string> = {
+      suggestionsShown: "Shown",
+      suggestionsAccepted: "Accepted",
+      answersGenerated: "Answers",
+    };
+    return [fmt(Number(value)), map[String(name)] ?? String(name)];
+  }}
+/>
+
               <Legend />
-              <Bar dataKey="suggestionsShown" />
-              <Bar dataKey="suggestionsAccepted" />
-              <Bar dataKey="answersGenerated" />
+<Bar
+  dataKey="suggestionsShown"
+  name="Shown"
+  fill={AGENT_BAR_COLORS.suggestionsShown}
+  radius={[6, 6, 0, 0]}
+/>
+<Bar
+  dataKey="suggestionsAccepted"
+  name="Accepted"
+  fill={AGENT_BAR_COLORS.suggestionsAccepted}
+  radius={[6, 6, 0, 0]}
+/>
+<Bar
+  dataKey="answersGenerated"
+  name="Answers"
+  fill={AGENT_BAR_COLORS.answersGenerated}
+  radius={[6, 6, 0, 0]}
+/>
+
             </BarChart>
           </ResponsiveContainer>
         </div>
