@@ -21,7 +21,7 @@ export const backend = {
   /**
    * GET /search
    */
-  search: (args: {F
+  search: (args: {
     query: string;
     filters: SearchFilters;
     sortBy: SortBy;

@@ -66,7 +66,8 @@ async search(
 ) {
   await sleep(350, opts?.signal);
   if (opts?.signal?.aborted) throw new DOMException("Aborted", "AbortError");
-  return backend.search(args);
+   return backend.search({ ...args});
+
 },
 
 

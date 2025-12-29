@@ -91,7 +91,7 @@ export default function SearchBar({
           placeholder="Search knowledge articles…"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          onFocus={(e) => {
+          onFocus={() => {
             onFocus?.();
           }}
           onKeyDown={(e) => {

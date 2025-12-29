@@ -15,7 +15,11 @@ function includesIgnoreCase(text: string, query: string): boolean {
  * - In production, this would query a search index (BM25 / vector / hybrid)
  */
 export class SearchService {
-  constructor(private store: ArticleStore) {}
+  private store: ArticleStore;
+
+  constructor(store: ArticleStore) {
+    this.store = store;
+  }
 
   /**
    * Suggest article titles based on prefix
