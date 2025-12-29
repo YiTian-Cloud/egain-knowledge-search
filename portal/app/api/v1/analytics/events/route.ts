@@ -1,43 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireBearer } from "../../lib/auth";
+import { requireBearer, isBearerAuthErr} from "../../lib/auth";
 
-export async function POST(req: NextRequest) {
+export async function GET(
+  req: NextRequest,
+  ctx: { params: Promise<{ id: string }> }
+) {
   const auth = requireBearer(req);
-  if (!auth.ok) {
-    return NextResponse.json(
-      { error: { code: auth.code, message: auth.message, requestId: crypto.randomUUID() } },
-      { status: auth.status }
-    );
-  }
 
-  const body = await req.json().catch(() => ({}));
-  const events = Array.isArray(body?.events) ? body.events : [];
-
-  // Minimal validation
-  let accepted = 0;
-  let rejected = 0;
-  const rejectionReasons: any[] = [];
-
-  events.forEach((e: any, idx: number) => {
-    if (!e?.eventId || !e?.type || !e?.timestamp) {
-      rejected++;
-      rejectionReasons.push({
-        index: idx,
-        code: "INVALID_EVENT",
-        message: "eventId, type, timestamp are required",
-      });
-      return;
-    }
-    accepted++;
-  });
-
+if (isBearerAuthErr(auth)) {
   return NextResponse.json(
-    {
-      requestId: crypto.randomUUID(),
-      accepted,
-      rejected,
-      rejectionReasons,
-    },
-    { status: 202 }
+    { error: { code: auth.code, message: auth.message, requestId: crypto.randomUUID() } },
+    { status: auth.status }
   );
+}
+
+  const { id } = await ctx.params;
+  const now = new Date().toISOString();
+
+  return NextResponse.json({
+    id,
+    title: `Demo Article ${id}`,
+    content: `Demo content for article ${id}.`,
+    category: "Troubleshooting",
+    tags: ["Demo", "Swagger"],
+    relevanceScore: 0.88,
+    createdDate: now,
+    lastUpdated: now,
+    viewCount: 42,
+  });
 }

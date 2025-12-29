@@ -14,6 +14,8 @@ export function getBearerToken(req: Request) {
   return m?.[1] ?? null;
 }
 
+
+
 export function requireAuth(req: Request): AuthClaims {
   const authHeader = req.headers.get("authorization");
   const token = getBearerToken(req);
@@ -35,3 +37,36 @@ export function requireAuth(req: Request): AuthClaims {
     throw new Error("INVALID_TOKEN");
   }
 }
+
+export type BearerAuthOk = { ok: true; claims: AuthClaims };
+export type BearerAuthErr = {
+  ok: false;
+  status: number;
+  code: string;
+  message: string;
+};
+
+export type BearerAuthResult = BearerAuthOk | BearerAuthErr;
+
+// ✅ Type guard — this makes TS narrow correctly everywhere
+export function isBearerAuthErr(x: BearerAuthResult): x is BearerAuthErr {
+  return x.ok === false;
+}
+
+export function requireBearer(req: Request): BearerAuthResult {
+  try {
+    const claims = requireAuth(req);
+    return { ok: true, claims }; // ok:true literal
+  } catch (err: any) {
+    const code = String(err?.message ?? "UNAUTHORIZED");
+
+    if (code === "MISSING_TOKEN") {
+      return { ok: false, status: 401, code, message: "Missing Bearer token" };
+    }
+    if (code === "INVALID_TOKEN") {
+      return { ok: false, status: 401, code, message: "Invalid Bearer token" };
+    }
+    return { ok: false, status: 401, code: "UNAUTHORIZED", message: "Unauthorized" };
+  }
+}
+

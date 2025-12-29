@@ -1,16 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireBearer } from "../../lib/auth";
+import { requireBearer, isBearerAuthErr } from "../../lib/auth";
 
-export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
-  const auth = requireBearer(req);
-  if (!auth.ok) {
-    return NextResponse.json(
-      { error: { code: auth.code, message: auth.message, requestId: crypto.randomUUID() } },
-      { status: auth.status }
-    );
-  }
+export async function GET(
+  req: NextRequest,
+  ctx: { params: Promise<{ id: string }> }
+) {
+ const auth = requireBearer(req);
 
-  const { id } = ctx.params;
+if (isBearerAuthErr(auth)) {
+  return NextResponse.json(
+    {
+      error: {
+        code: auth.code,
+        message: auth.message,
+        requestId: crypto.randomUUID(),
+      },
+    },
+    { status: auth.status }
+  );
+}
+
+
+  const { id } = await ctx.params;
   const now = new Date().toISOString();
 
   return NextResponse.json({
