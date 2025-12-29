@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Part 2 — Search UI Overview | eGain Demo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      background: #f8fafc;
+      color: #0f172a;
+    }
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 32px 24px;
+    }
+    h1 { font-size: 32px; margin-bottom: 8px; }
+    h2 { margin-top: 32px; }
+    p { color: #475569; line-height: 1.6; }
+    ul { line-height: 1.8; }
+    .card {
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 20px;
+      margin-top: 16px;
+    }
+    .badge {
+      display: inline-block;
+      background: #0b5fff;
+      color: white;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      margin-bottom: 12px;
+    }
+    a { color: #0b5fff; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .back {
+      margin-bottom: 16px;
+      display: inline-block;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <a class="back" href="/" aria-label="Back to portal">← Back to Portal</a>
+
+    <span class="badge">Part 2</span>
+    <h1>Search UI — UX & Frontend Architecture</h1>
+    <p>
+      This page summarizes the user experience and frontend design decisions
+      behind the eGain Knowledge Search interface.
+    </p>
+
+    <div class="card">
+      <h2>User Experience Highlights</h2>
+      <ul>
+        <li>Type-ahead search with real-time suggestions</li>
+        <li>Last 5 search history for quick reuse</li>
+        <li>Filtering by category and date</li>
+        <li>Sorting by relevance, date, and popularity</li>
+        <li>Search results with previews and metadata</li>
+        <li>Side panel article detail view</li>
+        <li>Save, open in new tab, and print actions</li>
+        <li>Responsive design for mobile and desktop</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>Frontend Architecture</h2>
+      <ul>
+        <li>React functional components + hooks</li>
+        <li>TypeScript-first development</li>
+        <li>Centralized reducer-based state management</li>
+        <li>Reusable, composable UI components</li>
+        <li>Mock backend abstraction for scalability</li>
+      </ul>
+    </div>
+
+    <div class="card">
+  <h2>Project File Structure</h2>
+  <p>
+    The search UI is organized to separate <b>UX components</b>,
+    <b>state management</b>, and <b>backend abstractions</b>, mirroring
+    production-grade frontend architecture.
+  </p>
+
+  <pre style="
+    background:#0f172a;
+    color:#e5e7eb;
+    padding:16px;
+    border-radius:12px;
+    overflow-x:auto;
+    font-size:13px;
+    line-height:1.6;
+  ">
+src/
+├─ api/
+│  ├─ client.ts            # Shared HTTP client (base URL, headers, auth, error handling)
+│  ├─ knowledgeApi.ts      # Knowledge search, suggestions, and article APIs
+│  └─ metaApi.ts           # Analytics, metrics, and non-core supporting APIs
+|
+├─ pages/
+│  └─ SearchPage.tsx        # Main search experience entry
+│
+├─ components/
+│  └─ search/
+│     ├─ SearchBar.tsx           # Query input + typeahead
+│     ├─ SearchHistory.tsx       # Last 5 searches
+│     ├─ SuggestionsList.tsx     # Suggestion list
+│     ├─ FiltersBar.tsx          # Category/date sorting controls
+│     ├─ FilterPanel.tsx         # Expandable filters UI
+│     ├─ ResultsList.tsx         # Search results container
+│     ├─ ArticleCard.tsx         # Individual result preview
+│     └─ ArticleDetailPanel.tsx  # Side panel article viewer
+│
+├─ hooks/
+│  ├─ useDebouncedValue.ts             # Input debouncingr
+│
+├─ state/
+│  └─ searchStore.ts           # Centralized search state
+│
+├─ backend-pseudocode/
+│  ├─ services/
+│  │  └─ searchService.ts        # API abstraction layer
+│  ├─ stores/
+│  │  └─ articleStore.ts         # In-memory article store
+│  └─ policies/                  # Ranking / filtering rules
+│
+├─ mocks/
+│  └─ articles.ts                # Mock knowledge articles
+│
+└─ styles/
+   └─ search.css                 # Lightweight styling
+  </pre>
+
+  <p style="margin-top:12px">
+    This structure allows the UI to evolve independently from the data source —
+    enabling future migration to real APIs, caches, or AI services with minimal refactoring.
+  </p>
+</div>
+
+
+    <div class="card">
+      <h2>Extensibility</h2>
+      <p>
+        The architecture supports future enhancements such as image search,
+        voice input, and AI-assisted answers — explored conceptually in Part 3.
+      </p>
+    </div>
+  </div>
+</body>
+</html>

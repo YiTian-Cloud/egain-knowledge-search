@@ -1,0 +1,1355 @@
+openapi: 3.0.3
+info:
+  title: eGain Knowledge API
+  version: "1.0.0"
+  description: >
+    REST API for knowledge search, articles CRUD, analytics, and agent-assisted suggestions.
+    Versioning: base path /v1; backwards-incompatible changes ship under /v2. Backwards-compatible changes
+    are additive and may be indicated via Deprecation/Sunset headers.
+
+servers:
+  - url: http://localhost:3000/api/v1
+
+tags:
+  - name: Search
+  - name: Articles
+  - name: Analytics
+  - name: Saved
+  - name: Auth
+  - name: Debug
+
+security:
+  - bearerAuth: []
+
+paths:
+  /debug/headers:
+    get:
+      tags: [Debug]
+      summary: Debug request headers
+      description: |
+        Echoes request headers back to the caller.
+        Used to verify Authorization bearer tokens are sent correctly from Swagger UI.
+      operationId: debugHeaders
+      responses:
+        "200":
+          description: Headers received by the server
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              example:
+                authorization: "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                x-request-id: "req_demo"
+                x-tenant-id: "demo-tenant"
+
+  /auth/token:
+    post:
+      tags: [Auth]
+      summary: Get access token (demo/dev)
+      description: >
+        Issues a JWT for testing secured endpoints. For production, replace with OAuth2/OIDC.
+      operationId: issueToken
+      security: []   # <-- important: this endpoint itself is not secured
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [clientId, clientSecret]
+              properties:
+                clientId:
+                  type: string
+                  default: demo
+                clientSecret:
+                  type: string
+                  format: password
+                  default: demo-secret
+            examples:
+              demo:
+                summary: Demo credentails
+                value:
+                  clientId: demo
+                  clientSecret: demo-secret        
+      responses:
+        "200":
+          description: Token issued
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [accessToken, tokenType, expiresIn]
+                properties:
+                  accessToken:
+                    type: string
+                  tokenType:
+                    type: string
+                    enum: [Bearer]
+                    example: Bearer
+                  expiresIn:
+                    type: integer
+                    description: Seconds until expiry
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /search:
+    post:
+      tags: [Search]
+      summary: Search knowledge articles
+      description: >
+        Full-text + metadata search across knowledge base with filters, sorting, and pagination.
+        Rate limiting applies per-tenant and per-user. Responses include request correlation and rate limit headers.
+      operationId: searchArticles
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/XTenantId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SearchRequest"
+            examples:
+              basic:
+                summary: Search with filters
+                value:
+                  query: "password reset"
+                  filters:
+                    category: "Troubleshooting"
+                    tags: ["SSO", "Login"]
+                    fromDate: "2025-01-01T00:00:00Z"
+                    toDate: "2025-12-31T23:59:59Z"
+                  sortBy: relevance
+                  pagination:
+                    page: 1
+                    pageSize: 20
+      responses:
+        "200":
+          description: Search results
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/XRequestId"
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/XRateLimitLimit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/XRateLimitRemaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/XRateLimitReset"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /search/suggestions:
+    get:
+      tags: [Search]
+      summary: Get typeahead suggestions
+      description: >
+        Lightweight prefix suggestions for the search bar. Intended for frequent calls; has a higher QPS but lower cost.
+      operationId: getSuggestions
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/XTenantId"
+        - in: query
+          name: q
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 10
+            default: 5
+      responses:
+        "200":
+          description: Suggestion list
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/XRequestId"
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/XRateLimitLimit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/XRateLimitRemaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/XRateLimitReset"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuggestionsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  # Optional alias (keep if your UI already calls /suggestions)
+  /suggestions:
+    get:
+      tags: [Search]
+      summary: Get typeahead suggestions (alias)
+      description: Alias of /search/suggestions.
+      operationId: getSuggestionsAlias
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/XTenantId"
+        - in: query
+          name: q
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 10
+            default: 5
+      responses:
+        "200":
+          description: Suggestion list
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/XRequestId"
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/XRateLimitLimit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/XRateLimitRemaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/XRateLimitReset"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuggestionsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /articles:
+    post:
+      tags: [Articles]
+      summary: Create an article
+      description: >
+        Creates a new knowledge article. Authorization uses RBAC via JWT claims (e.g., roles: ["admin","editor"]).
+      operationId: createArticle
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/XTenantId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ArticleCreate"
+      responses:
+        "201":
+          description: Created
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/XRequestId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Article"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+      x-required-roles: ["admin", "editor"]
+
+  /articles/{id}:
+    get:
+      tags: [Articles]
+      summary: Get an article by id
+      description: >
+        Returns article content and metadata. Optionally increments viewCount on the server side.
+      operationId: getArticle
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/XTenantId"
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Article
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/XRequestId"
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/XRateLimitLimit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/XRateLimitRemaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/XRateLimitReset"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Article"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+    patch:
+      tags: [Articles]
+      summary: Update article fields
+      description: Partial update. Uses optimistic concurrency via If-Match with ETag when supported.
+      operationId: updateArticle
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/XTenantId"
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: header
+          name: If-Match
+          required: false
+          description: Optional ETag for optimistic concurrency control.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ArticlePatch"
+      responses:
+        "200":
+          description: Updated
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/XRequestId"
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/XRateLimitLimit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/XRateLimitRemaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/XRateLimitReset"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Article"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+      x-required-roles: ["admin", "editor"]
+
+    delete:
+      tags: [Articles]
+      summary: Delete an article
+      description: Soft-delete recommended (auditability); hard-delete restricted.
+      operationId: deleteArticle
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/XTenantId"
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/XRequestId"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+      x-required-roles: ["admin"]
+
+  /analytics/events:
+    post:
+      tags: [Analytics]
+      summary: Ingest analytics events (high-volume)
+      description: >
+        High-volume write endpoint for search and agent interaction events.
+        Recommended: send events in batches and accept 202 to decouple UI from processing.
+        Supports idempotency via Idempotency-Key to avoid duplicates on retries.
+      operationId: trackEvents
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/XTenantId"
+        - in: header
+          name: Idempotency-Key
+          required: false
+          description: Unique key for retry-safe ingestion (e.g., UUID per batch).
+          schema:
+            type: string
+            maxLength: 128
+        - in: header
+          name: Prefer
+          required: false
+          description: Optional. If set to `respond-async`, server should prefer async acceptance 202.
+          schema:
+            type: string
+            example: respond-async
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnalyticsIngestRequest"
+            examples:
+              batch:
+                summary: Batch of events
+                value:
+                  events:
+                    - eventId: "evt_001"
+                      type: search_executed
+                      timestamp: "2025-12-15T18:22:10Z"
+                      sessionId: "sess_abc"
+                      payload:
+                        query: "reset password"
+                        filters:
+                          category: "Troubleshooting"
+                        resultCount: 42
+                    
+                    - eventId: "evt_002"
+                      type: agent_suggestion_accepted
+                      timestamp: "2025-12-15T18:22:14Z"
+                      sessionId: "sess_abc"
+                      payload:
+                        articleId: "art_123"
+                        suggestionId: "sug_9"
+      responses:
+        "202":
+          description: Accepted for async processing
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/XRequestId"
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/XRateLimitLimit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/XRateLimitRemaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/XRateLimitReset"
+          content: 
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalyticsIngestResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge" 
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /analytics/summary:
+    get:
+      tags: [Analytics]
+      summary: Get analytics summary (admin)
+      description: Aggregated analytics for dashboards. Typically restricted to admins.
+      operationId: getAnalyticsSummary
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/XTenantId"
+        - in: query
+          name: from
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: to
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: Summary metrics
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/XRequestId"
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/XRateLimitLimit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/XRateLimitRemaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/XRateLimitReset"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalyticsSummary"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+      x-required-roles: ["admin"]
+
+  /analytics/agent/summary:
+    get:
+      tags: [Analytics]
+      summary: Get agent interaction metrics summary (admin)
+      description: Aggregated metrics for agent suggestions/answers over a time window, optionally filtered by tenant/user/category.
+      operationId: getAgentMetricsSummary
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/XTenantId"
+        - in: query
+          name: from
+          required: true
+          schema:
+            type: string
+            format: date-time
+          description: Start of reporting window (inclusive).
+        - in: query
+          name: to
+          required: true
+          schema:
+            type: string
+            format: date-time
+          description: End of reporting window (exclusive).
+        - in: query
+          name: granularity
+          required: false
+          schema:
+            type: string
+            enum: [hour, day, week]
+            default: day
+          description: Bucket size for time-series metrics.
+        - in: query
+          name: category
+          required: false
+          schema:
+            type: string
+          description: Filter by article category.
+        - in: query
+          name: userId
+          required: false
+          schema:
+            type: string
+          description: Filter to a specific user (admin/support use).
+        - in: query
+          name: limitTop
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+          description: Limit for top lists (queries/articles).
+      responses:
+        "200":
+          description: Agent interaction summary
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/XRequestId"
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/XRateLimitLimit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/XRateLimitRemaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/XRateLimitReset"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentMetricsSummary"
+              examples:
+                example:
+                  value:
+                    window:
+                      from: "2025-12-01T00:00:00Z"
+                      to: "2025-12-08T00:00:00Z"
+                      granularity: "day"
+                    totals:
+                      suggestionsShown: 12450
+                      suggestionsClicked: 3820
+                      suggestionsAccepted: 2110
+                      suggestionsRejected: 980
+                      answersGenerated: 5400
+                      answersCopied: 860
+                      feedbackSubmitted: 410
+                    rates:
+                      clickThroughRate: 0.307
+                      acceptanceRate: 0.170
+                      rejectionRate: 0.079
+                      copyRate: 0.159
+                      helpfulRate: 0.78
+                    latencyMs:
+                      retrieval:
+                        p50: 85
+                        p95: 240
+                      generation:
+                        p50: 620
+                        p95: 1800
+                      endToEnd:
+                        p50: 740
+                        p95: 2100
+                    topSuggestedArticles:
+                      - articleId: "a_123"
+                        title: "Resetting Passwords"
+                        count: 420
+                      - articleId: "a_456"
+                        title: "SSO Troubleshooting"
+                        count: 315
+                    topQueries:
+                      - query: "password reset"
+                        count: 860
+                      - query: "sso login failed"
+                        count: 540
+                    timeseries:
+                      - bucketStart: "2025-12-01T00:00:00Z"
+                        suggestionsShown: 1800
+                        suggestionsAccepted: 310
+                        answersGenerated: 720
+                      - bucketStart: "2025-12-02T00:00:00Z"
+                        suggestionsShown: 1750
+                        suggestionsAccepted: 295
+                        answersGenerated: 705
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+      x-required-roles: ["admin"]
+
+
+  /users/me/saved:
+    get:
+      tags: [Saved]
+      summary: List saved article IDs for current user
+      operationId: listSaved
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/XTenantId"
+      responses:
+        "200":
+          description: Saved article IDs
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/XRequestId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SavedIdsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+    put:
+      tags: [Saved]
+      summary: Replace saved list (idempotent)
+      operationId: replaceSaved
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/XTenantId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SavedIdsRequest"
+      responses:
+        "200":
+          description: Updated
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/XRequestId"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /users/me/saved/{id}:
+    put:
+      tags: [Saved]
+      summary: Save an article
+      operationId: saveArticle
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/XTenantId"
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Saved
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/XRequestId"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+    delete:
+      tags: [Saved]
+      summary: Unsave an article
+      operationId: unsaveArticle
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/XTenantId"
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Unsaved
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/XRequestId"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >
+        JWT contains tenant and role claims. RBAC examples:
+        viewer: search/read; editor: create/update; admin: delete + analytics admin.
+
+  parameters:
+    XRequestId:
+      name: X-Request-Id
+      in: header
+      required: false
+      description: Client-provided request id for tracing (echoed in response).
+      schema:
+        type: string
+        maxLength: 128
+
+    XTenantId:
+      name: X-Tenant-Id
+      in: header
+      required: false
+      description: >
+        Tenant identifier when operating in a multi-tenant gateway. If omitted, derived from JWT claims.
+      schema:
+        type: string
+        maxLength: 128
+
+  headers:
+    XRequestId:
+      description: Request correlation id.
+      schema:
+        type: string
+
+    XRateLimitLimit:
+      description: Request limit per window for this identity (tenant/user).
+      schema:
+        type: integer
+        format: int64
+
+    XRateLimitRemaining:
+      description: Remaining requests in the current window.
+      schema:
+        type: integer
+        format: int64
+
+    XRateLimitReset:
+      description: Unix timestamp (seconds) when the current window resets.
+      schema:
+        type: integer
+        format: int64
+
+  schemas:
+    # -----------------------
+    # Search
+    # -----------------------
+    SearchRequest:
+      type: object
+      required: [query]
+      additionalProperties: false
+      properties:
+        query:
+          type: string
+          minLength: 1
+          maxLength: 512
+        filters:
+          $ref: "#/components/schemas/SearchFilters"
+        sortBy:
+          type: string
+          enum: [relevance, date, popularity]
+          default: relevance
+        pagination:
+          $ref: "#/components/schemas/PageRequest"
+
+    SearchFilters:
+      type: object
+      additionalProperties: false
+      properties:
+        category:
+          type: string
+          maxLength: 64
+        fromDate:
+          type: string
+          format: date-time
+        toDate:
+          type: string
+          format: date-time
+        tags:
+          type: array
+          maxItems: 20
+          items:
+            type: string
+            maxLength: 64
+
+    PageRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        page:
+          type: integer
+          minimum: 1
+          default: 1
+        pageSize:
+          type: integer
+          minimum: 1
+          maximum: 50
+          default: 20
+
+    SearchResponse:
+      type: object
+      required: [results, page, pageSize, total]
+      additionalProperties: false
+      properties:
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/Article"
+        page:
+          type: integer
+          minimum: 1
+        pageSize:
+          type: integer
+          minimum: 1
+        total:
+          type: integer
+          minimum: 0
+
+    SuggestionsResponse:
+      type: object
+      required: [suggestions]
+      additionalProperties: false
+      properties:
+        suggestions:
+          type: array
+          items:
+            type: string
+
+    # -----------------------
+    # Articles
+    # -----------------------
+    Article:
+      type: object
+      required: [id, title, content, category, tags, relevanceScore, createdDate, lastUpdated, viewCount]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+          maxLength: 256
+        content:
+          type: string
+        category:
+          type: string
+          maxLength: 64
+        tags:
+          type: array
+          maxItems: 50
+          items:
+            type: string
+            maxLength: 64
+        relevanceScore:
+          type: number
+          format: float
+        createdDate:
+          type: string
+          format: date-time
+        lastUpdated:
+          type: string
+          format: date-time
+        viewCount:
+          type: integer
+          format: int64
+
+    ArticleCreate:
+      type: object
+      required: [title, content, category, tags]
+      additionalProperties: false
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 256
+        content:
+          type: string
+          minLength: 1
+        category:
+          type: string
+          minLength: 1
+          maxLength: 64
+        tags:
+          type: array
+          maxItems: 50
+          items:
+            type: string
+            maxLength: 64
+
+    ArticlePatch:
+      type: object
+      additionalProperties: false
+      properties:
+        title:
+          type: string
+          maxLength: 256
+        content:
+          type: string
+        category:
+          type: string
+          maxLength: 64
+        tags:
+          type: array
+          maxItems: 50
+          items:
+            type: string
+            maxLength: 64
+
+    # -----------------------
+    # Saved
+    # -----------------------
+    SavedIdsResponse:
+      type: object
+      required: [ids]
+      additionalProperties: false
+      properties:
+        ids:
+          type: array
+          items:
+            type: string
+
+    SavedIdsRequest:
+      type: object
+      required: [ids]
+      additionalProperties: false
+      properties:
+        ids:
+          type: array
+          items:
+            type: string
+
+    # -----------------------
+    # Analytics (high-volume)
+    # -----------------------
+    AnalyticsEvent:
+      type: object
+      required: [eventId, type, timestamp]
+      additionalProperties: false
+      properties:
+        eventId:
+          type: string
+          format: uuid
+          description: Client-generated UUID for dedupe/retry safety.
+        type:
+          type: string
+          enum:
+            - search_executed
+            - suggestion_clicked
+            - article_opened
+            - article_saved
+            - agent_suggestion_shown
+            - agent_suggestion_clicked
+            - agent_suggestion_accepted
+            - agent_suggestion_rejected
+            - agent_answer_generated
+            - agent_answer_copied
+            - agent_feedback_submitted
+        timestamp:
+          type: string
+          format: date-time
+        userId:
+          type: string
+          description: Optional; may be derived from auth context.
+        sessionId:
+          type: string
+        payload:
+          type: object
+          additionalProperties: true
+          description: Event-type-specific details (query, result ids, model, latency, etc. )
+
+    AnalyticsIngestRequest:
+      type: object
+      required: [events]
+      additionalProperties: false
+      properties:
+        events:
+          type: array
+          description: Batch of events for high-volume ingest.
+          minItems: 1
+          maxItems: 500
+          items:
+            $ref: "#/components/schemas/AnalyticsEvent"
+
+    AnalyticsIngestResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        requestId:
+          type: string
+          description: Correlates server logs and downstream processing.
+        accepted:
+          type: integer
+          description: Number of events accepted.
+        rejected:
+          type: integer
+          description: Number of events rejected (validation).
+        rejectionReasons:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [index, code, message]
+            properties:
+              index:
+                type: integer
+                description: Index in the events array that failed validation.
+              code:
+                type: string
+              message:
+                type: string
+
+    AnalyticsSummary:
+      type: object
+      additionalProperties: false
+      properties:
+        searches:
+          type: integer
+        articleOpens:
+          type: integer
+        saves:
+          type: integer
+        topQueries:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              query:
+                type: string
+              count:
+                type: integer
+
+    AgentMetricsSummary:
+      type: object
+      required: [window, totals, rates, latencyMs, timeseries]
+      properties:
+        window:
+          type: object
+          required: [from, to, granularity]
+          properties:
+            from:
+              type: string
+              format: date-time
+            to:
+              type: string
+              format: date-time
+            granularity:
+              type: string
+              enum: [hour, day, week]
+        totals:
+          type: object
+          required:
+            - suggestionsShown
+            - suggestionsClicked
+            - suggestionsAccepted
+            - suggestionsRejected
+            - answersGenerated
+            - answersCopied
+            - feedbackSubmitted
+          properties:
+            suggestionsShown: { type: integer, format: int64 }
+            suggestionsClicked: { type: integer, format: int64 }
+            suggestionsAccepted: { type: integer, format: int64 }
+            suggestionsRejected: { type: integer, format: int64 }
+            answersGenerated: { type: integer, format: int64 }
+            answersCopied: { type: integer, format: int64 }
+            feedbackSubmitted: { type: integer, format: int64 }
+        rates:
+          type: object
+          description: Derived rates (0..1). Server computes from totals.
+          properties:
+            clickThroughRate: { type: number, format: float }
+            acceptanceRate: { type: number, format: float }
+            rejectionRate: { type: number, format: float }
+            copyRate: { type: number, format: float }
+            helpfulRate: { type: number, format: float }
+        latencyMs:
+          type: object
+          required: [retrieval, generation, endToEnd]
+          properties:
+            retrieval:
+              $ref: "#/components/schemas/LatencyPercentiles"
+            generation:
+              $ref: "#/components/schemas/LatencyPercentiles"
+            endToEnd:
+              $ref: "#/components/schemas/LatencyPercentiles"
+        topSuggestedArticles:
+          type: array
+          items:
+            type: object
+            required: [articleId, count]
+            properties:
+              articleId: { type: string }
+              title: { type: string }
+              count: { type: integer, format: int64 }
+        topQueries:
+          type: array
+          items:
+            type: object
+            required: [query, count]
+            properties:
+              query: { type: string }
+              count: { type: integer, format: int64 }
+        timeseries:
+          type: array
+          items:
+            $ref: "#/components/schemas/AgentMetricsBucket"
+
+    AgentMetricsBucket:
+      type: object
+      required: [bucketStart, suggestionsShown, suggestionsAccepted, answersGenerated]
+      properties:
+        bucketStart:
+          type: string
+          format: date-time
+        suggestionsShown: { type: integer, format: int64 }
+        suggestionsAccepted: { type: integer, format: int64 }
+        answersGenerated: { type: integer, format: int64 }
+
+    LatencyPercentiles:
+      type: object
+      required: [p50, p95]
+      properties:
+        p50: { type: integer, format: int64 }
+        p95: { type: integer, format: int64 }
+        p99: { type: integer, format: int64 }
+  
+    # -----------------------
+    # Errors
+    # -----------------------
+    ErrorResponse:
+      type: object
+      required: [error]
+      additionalProperties: false
+      properties:
+        error:
+          type: object
+          required: [code, message, requestId]
+          additionalProperties: false
+          properties:
+            code:
+              type: string
+              description: Stable machine-readable error code.
+            message:
+              type: string
+            requestId:
+              type: string
+            details:
+              type: object
+              additionalProperties: true
+
+  responses:
+    BadRequest:
+      description: Bad Request
+      headers:
+        X-Request-Id:
+          $ref: "#/components/headers/XRequestId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            invalidQuery:
+              value:
+                error:
+                  code: INVALID_ARGUMENT
+                  message: "query must be at least 1 character"
+                  requestId: "req_123"
+
+    Unauthorized:
+      description: Unauthorized
+      headers:
+        X-Request-Id:
+          $ref: "#/components/headers/XRequestId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    Forbidden:
+      description: Forbidden
+      headers:
+        X-Request-Id:
+          $ref: "#/components/headers/XRequestId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    NotFound:
+      description: Not Found
+      headers:
+        X-Request-Id:
+          $ref: "#/components/headers/XRequestId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    Conflict:
+      description: Conflict (e.g., ETag mismatch / concurrent update)
+      headers:
+        X-Request-Id:
+          $ref: "#/components/headers/XRequestId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    PayloadTooLarge:
+      description: Payload Too Large
+      headers:
+        X-Request-Id:
+          $ref: "#/components/headers/XRequestId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    TooManyRequests:
+      description: Too Many Requests
+      headers:
+        X-Request-Id:
+          $ref: "#/components/headers/XRequestId"
+        Retry-After:
+          description: Seconds to wait before retrying.
+          schema:
+            type: integer
+        X-RateLimit-Limit:
+          $ref: "#/components/headers/XRateLimitLimit"
+        X-RateLimit-Remaining:
+          $ref: "#/components/headers/XRateLimitRemaining"
+        X-RateLimit-Reset:
+          $ref: "#/components/headers/XRateLimitReset"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            throttled:
+              value:
+                error:
+                  code: RATE_LIMITED
+                  message: "Too many requests. Please retry later."
+                  requestId: "req_456"
+                  details:
+                    scope: "tenant:user"
+                    windowSeconds: 60
+
+    InternalServerError:
+      description: Internal Server Error
+      headers:
+        X-Request-Id:
+          $ref: "#/components/headers/XRequestId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"

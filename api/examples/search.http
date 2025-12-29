@@ -1,0 +1,151 @@
+### =========================================================
+### AUTH — Get token (demo/dev)
+### =========================================================
+POST https://api.egain.example.com/v1/auth/token
+Content-Type: application/json
+
+{
+  "clientId": "demo",
+  "clientSecret": "demo-secret"
+}
+
+### Sample Response (200)
+# {
+#   "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+#   "tokenType": "Bearer",
+#   "expiresIn": 3600
+# }
+
+> {% client.global.set("token", response.body.accessToken); %}
+
+
+
+### =========================================================
+### SEARCH — Search articles (page 1)
+### =========================================================
+POST https://api.egain.example.com/v1/search
+Authorization: Bearer {{token}}
+Content-Type: application/json
+X-Request-Id: req_search_001
+X-Tenant-Id: demo-tenant
+
+{
+  "query": "reset password",
+  "filters": { 
+    "category": "Accounts",
+    "tags": ["Login", "SSO"]
+  },
+  "sortBy": "relevance",
+  "pagination": {
+    "page": 1,
+    "pageSize": 20
+  }
+}
+
+### Sample Response (200)
+# {
+#   "page": 1,
+#   "pageSize": 20,
+#   "total": 87,
+#   "results": [
+#     {
+#       "id": "art_123",
+#       "title": "How to Reset Your Password",
+#       "content": "If you forgot your password, follow these steps...",
+#       "category": "Accounts",
+#       "tags": ["Login", "Password"],
+#       "relevanceScore": 0.92,
+#       "createdDate": "2024-06-01T10:12:00Z",
+#       "lastUpdated": "2025-01-12T09:30:00Z",
+#       "viewCount": 18432
+#     },
+#     {
+#       "id": "art_456",
+#       "title": "Password Reset Issues with SSO",
+#       "content": "When using SSO, password reset behaves differently...",
+#       "category": "Accounts",
+#       "tags": ["SSO", "Login"],
+#       "relevanceScore": 0.88,
+#       "createdDate": "2024-08-10T14:05:00Z",
+#       "lastUpdated": "2025-02-02T11:10:00Z",
+#       "viewCount": 10221
+#     }
+#   ]
+# }
+
+
+
+### =========================================================
+### SEARCH — Next page (page 2)
+### =========================================================
+POST https://api.egain.example.com/v1/search
+Authorization: Bearer {{token}}
+Content-Type: application/json
+X-Request-Id: req_search_002
+
+{
+  "query": "reset password",
+  "filters": { "category": "Accounts" },
+  "sortBy": "relevance",
+  "pagination": {
+    "page": 2,
+    "pageSize": 20
+  }
+}
+
+### Sample Response (200)
+# {
+#   "page": 2,
+#   "pageSize": 20,
+#   "total": 87,
+#   "results": [
+#     {
+#       "id": "art_789",
+#       "title": "Password Reset Email Not Received",
+#       "content": "If you did not receive the reset email...",
+#       "category": "Accounts",
+#       "tags": ["Email", "Password"],
+#       "relevanceScore": 0.81,
+#       "createdDate": "2024-05-22T08:40:00Z",
+#       "lastUpdated": "2024-12-15T16:00:00Z",
+#       "viewCount": 7432
+#     }
+#   ]
+# }
+
+
+
+### =========================================================
+### SEARCH — Suggestions (typeahead)
+### =========================================================
+GET https://api.egain.example.com/v1/search/suggestions?q=reset&limit=5
+Authorization: Bearer {{token}}
+X-Request-Id: req_suggest_001
+
+### Sample Response (200)
+# {
+#   "suggestions": [
+#     "reset password",
+#     "reset password sso",
+#     "reset password email",
+#     "reset password locked account",
+#     "reset password not working"
+#   ]
+# }
+
+
+
+### =========================================================
+### DEBUG — Verify Authorization header is being sent
+### =========================================================
+GET https://api.egain.example.com/v1/debug/headers
+Authorization: Bearer {{token}}
+X-Request-Id: req_debug_001
+
+### Sample Response (200)
+# {
+#   "authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+#   "x-request-id": "req_debug_001",
+#   "x-tenant-id": "demo-tenant",
+#   "user-agent": "Swagger-UI/5.x"
+# }

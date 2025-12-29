@@ -1,0 +1,146 @@
+### =========================================================
+### AUTH — Get token (demo/dev)
+### =========================================================
+POST https://api.egain.example.com/v1/auth/token
+Content-Type: application/json
+
+{
+  "clientId": "demo",
+  "clientSecret": "demo-secret"
+}
+
+### Sample Response (200)
+# {
+#   "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+#   "tokenType": "Bearer",
+#   "expiresIn": 3600
+# }
+
+> {% client.global.set("token", response.body.accessToken); %}
+
+
+
+### =========================================================
+### ANALYTICS — Ingest events (high-volume, async)
+### =========================================================
+POST https://api.egain.example.com/v1/analytics/events
+Authorization: Bearer {{token}}
+Content-Type: application/json
+X-Request-Id: req_analytics_ingest_001
+Idempotency-Key: batch-0001
+
+{
+  "events": [
+    {
+      "eventId": "11111111-1111-1111-1111-111111111111",
+      "type": "search_executed",
+      "timestamp": "2025-12-28T18:22:10Z",
+      "sessionId": "sess_demo_001",
+      "payload": {
+        "query": "reset password",
+        "resultCount": 42,
+        "filters": { "category": "Accounts" }
+      }
+    },
+    {
+      "eventId": "22222222-2222-2222-2222-222222222222",
+      "type": "agent_suggestion_accepted",
+      "timestamp": "2025-12-28T18:22:14Z",
+      "sessionId": "sess_demo_001",
+      "payload": {
+        "articleId": "art_123",
+        "suggestionId": "sug_9"
+      }
+    }
+  ]
+}
+
+### Sample Response (202 — Accepted for async processing)
+# {
+#   "requestId": "req_analytics_ingest_001",
+#   "accepted": 2,
+#   "rejected": 0,
+#   "rejectionReasons": []
+# }
+
+
+
+### =========================================================
+### ANALYTICS — Summary (admin dashboard)
+### =========================================================
+GET https://api.egain.example.com/v1/analytics/summary?from=2025-12-01T00:00:00Z&to=2025-12-31T00:00:00Z
+Authorization: Bearer {{token}}
+X-Request-Id: req_analytics_summary_001
+
+### Sample Response (200)
+# {
+#   "searches": 18420,
+#   "articleOpens": 9720,
+#   "saves": 3110,
+#   "topQueries": [
+#     { "query": "reset password", "count": 2140 },
+#     { "query": "sso login failed", "count": 1670 },
+#     { "query": "account locked", "count": 940 }
+#   ]
+# }
+
+
+
+### =========================================================
+### ANALYTICS — Agent interaction summary (admin)
+### =========================================================
+GET https://api.egain.example.com/v1/analytics/agent/summary?from=2025-12-01T00:00:00Z&to=2025-12-31T00:00:00Z&granularity=day&limitTop=10
+Authorization: Bearer {{token}}
+X-Request-Id: req_agent_summary_001
+
+### Sample Response (200)
+# {
+#   "window": {
+#     "from": "2025-12-01T00:00:00Z",
+#     "to": "2025-12-31T00:00:00Z",
+#     "granularity": "day"
+#   },
+#   "totals": {
+#     "suggestionsShown": 12450,
+#     "suggestionsClicked": 3820,
+#     "suggestionsAccepted": 2110,
+#     "suggestionsRejected": 980,
+#     "answersGenerated": 5400,
+#     "answersCopied": 860,
+#     "feedbackSubmitted": 410
+#   },
+#   "rates": {
+#     "clickThroughRate": 0.307,
+#     "acceptanceRate": 0.170,
+#     "rejectionRate": 0.079,
+#     "copyRate": 0.159,
+#     "helpfulRate": 0.78
+#   },
+#   "latencyMs": {
+#     "retrieval": { "p50": 85, "p95": 240, "p99": 410 },
+#     "generation": { "p50": 620, "p95": 1800, "p99": 2900 },
+#     "endToEnd": { "p50": 740, "p95": 2100, "p99": 3300 }
+#   },
+#   "topSuggestedArticles": [
+#     { "articleId": "art_123", "title": "Resetting Passwords", "count": 420 },
+#     { "articleId": "art_456", "title": "SSO Troubleshooting", "count": 315 }
+#   ],
+#   "topQueries": [
+#     { "query": "password reset", "count": 860 },
+#     { "query": "sso login failed", "count": 540 }
+#   ],
+#   "timeseries": [
+#     {
+#       "bucketStart": "2025-12-01T00:00:00Z",
+#       "suggestionsShown": 1800,
+#       "suggestionsAccepted": 310,
+#       "answersGenerated": 720
+#     },
+#     {
+#       "bucketStart": "2025-12-02T00:00:00Z",
+#       "suggestionsShown": 1750,
+#       "suggestionsAccepted": 295,
+#       "answersGenerated": 705
+#     }
+#   ]
+# }

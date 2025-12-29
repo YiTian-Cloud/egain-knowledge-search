@@ -1,0 +1,113 @@
+### =========================================================
+### AUTH — Get token (demo/dev)
+### =========================================================
+POST https://api.egain.example.com/v1/auth/token
+Content-Type: application/json
+
+{
+  "clientId": "demo",
+  "clientSecret": "demo-secret"
+}
+
+### Sample Response (200)
+# {
+#   "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+#   "tokenType": "Bearer",
+#   "expiresIn": 3600
+# }
+
+> {% client.global.set("token", response.body.accessToken); %}
+
+
+
+### =========================================================
+### ARTICLES — Create
+### =========================================================
+POST https://api.egain.example.com/v1/articles
+Authorization: Bearer {{token}}
+Content-Type: application/json
+X-Request-Id: req_article_create_001
+X-Tenant-Id: demo-tenant
+
+{
+  "title": "Resetting Your Password",
+  "content": "Step 1: Go to Settings...\nStep 2: Click Reset...\n",
+  "category": "Accounts",
+  "tags": ["password", "login", "reset"]
+}
+
+### Sample Response (201)
+# {
+#   "id": "art_123",
+#   "title": "Resetting Your Password",
+#   "content": "Step 1: Go to Settings...\nStep 2: Click Reset...\n",
+#   "category": "Accounts",
+#   "tags": ["password", "login", "reset"],
+#   "relevanceScore": 0.0,
+#   "createdDate": "2025-03-01T18:20:00Z",
+#   "lastUpdated": "2025-03-01T18:20:00Z",
+#   "viewCount": 0
+# }
+
+> {% client.global.set("articleId", response.body.id); %}
+
+
+
+### =========================================================
+### ARTICLES — Get by id
+### =========================================================
+GET https://api.egain.example.com/v1/articles/art_123
+Authorization: Bearer {{token}}
+X-Request-Id: req_article_get_001
+
+### Sample Response (200)
+# {
+#   "id": "art_123",
+#   "title": "Resetting Your Password",
+#   "content": "Step 1: Go to Settings...\nStep 2: Click Reset...\n",
+#   "category": "Accounts",
+#   "tags": ["password", "login", "reset"],
+#   "relevanceScore": 0.84,
+#   "createdDate": "2025-03-01T18:20:00Z",
+#   "lastUpdated": "2025-03-01T18:20:00Z",
+#   "viewCount": 27
+# }
+
+
+
+### =========================================================
+### ARTICLES — Patch (partial update)
+### =========================================================
+PATCH https://api.egain.example.com/v1/articles/art_123
+Authorization: Bearer {{token}}
+Content-Type: application/json
+X-Request-Id: req_article_patch_001
+
+{
+  "tags": ["password", "login", "reset", "mfa"]
+}
+
+### Sample Response (200)
+# {
+#   "id": "art_123",
+#   "title": "Resetting Your Password",
+#   "content": "Step 1: Go to Settings...\nStep 2: Click Reset...\n",
+#   "category": "Accounts",
+#   "tags": ["password", "login", "reset", "mfa"],
+#   "relevanceScore": 0.86,
+#   "createdDate": "2025-03-01T18:20:00Z",
+#   "lastUpdated": "2025-03-02T09:45:00Z",
+#   "viewCount": 31
+# }
+
+
+
+### =========================================================
+### ARTICLES — Delete
+### =========================================================
+DELETE https://api.egain.example.com/v1/articles/art_123
+Authorization: Bearer {{token}}
+X-Request-Id: req_article_delete_001
+
+### Sample Response (204)
+# (No response body)
