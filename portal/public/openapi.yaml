@@ -8,7 +8,7 @@ info:
     are additive and may be indicated via Deprecation/Sunset headers.
 
 servers:
-  - url: http://localhost:3000/api/v1
+  - url: /api/v1
 
 tags:
   - name: Search
