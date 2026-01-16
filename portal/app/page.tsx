@@ -98,6 +98,12 @@ export default function Home() {
   </a>
 
           </li>
+          <li>
+            <b>Part 6 — Demo Links:</b>{" "}
+            <a href="/part6" style={linkStyle}>
+              Deployment URLs
+            </a>
+          </li>
         </ul>
       </section>
 
