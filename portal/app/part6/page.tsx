@@ -49,6 +49,17 @@ export default function Part6() {
               objectstorage.us-sanjose-1.oraclecloud.com/.../index.html
             </a>
           </li>
+                    <li>
+            OCI Object Storage ( AI ):{" "}
+            <a
+              href="https://objectstorage.us-sanjose-1.oraclecloud.com/p/ldzuwDiaJp5gmQl0rtkCtCF5bsqAXjKQg_YNx_YReVDNotia6GKe-0_bPwTFXvxC/n/axeci9vfounk/b/hybrid-search/o/index.html"
+              target="_blank"
+              rel="noreferrer"
+              style={{ textDecoration: "underline" }}
+            >
+              objectstorage.us-sanjose-1.oraclecloud.com/.../index.html
+            </a>
+          </li>
         </ul>
       </section>
 
